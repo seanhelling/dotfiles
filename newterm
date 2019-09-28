@@ -1,0 +1,106 @@
+#!/bin/zsh
+# ESTABLISH VARIABLENESS
+
+HOST=`hostname -s`
+USER=`whoami`
+USERL=$USER
+HOSTL=$HOST
+CPUTYPE=`lscpu | sed -nr ':a;s/  / /;ta; /Model name/ s/.*: (.*).*/\1/p'`
+NUMCPUS=`lscpu | grep "CPU(s):" | head -1 | sed 's/.*\ //'`
+MEMTOTALKB=`cat /proc/meminfo | grep MemTotal | tr -dc '0-9'`
+MEMTOTAL=$((MEMTOTALKB/1024))
+
+# ESTABLISH COLORS
+autoload colors && colors
+for COLOR in RED GREEN YELLOW BLUE MAGENTA CYAN BLACK WHITE; do
+    eval $COLOR='$fg_no_bold[${(L)COLOR}]'  #wrap colors between %{ %} to avoid weird gaps in autocomplete
+    eval B$COLOR='$fg_bold[${(L)COLOR}]'
+done
+GRAY='\033[90m'
+BGRAY='\033[37m'
+RESET="${reset_color}\033[49m"
+
+# fix the CPUTYPE string
+if [ $(echo $CPUTYPE | grep -c '@') -ne "0" ]; then
+    CPUTYPE=`lscpu | sed -nr '/Model name/ s/  / /g; s/.*:\s*(.*) @ .*/\1/p'`
+    # the rest is mostly weird Intel shit
+    CPUTYPE=$(echo $CPUTYPE | sed -e s/'(R)'//g)        # eliminate (R) wherever it occurs
+    CPUTYPE=$(echo $CPUTYPE | sed -e s/'(TM)'//g)       # eliminate (TM) wherever it occurs
+    CPUTYPE=$(echo $CPUTYPE | sed -e s/'CPU'//g)        # eliminate CPU wherever it occurs, we know this Intel
+    CPUTYPE=$(echo $CPUTYPE | sed -e 's/ 0$//g')        # remove that weird 0 that Intel leaves at the end of the model
+    CPUTYPE=$(echo $CPUTYPE | sed -e 's/[ \t]*$//')     # fix double spaces
+    CPUTYPE=$(echo $CPUTYPE | sed -e 's/  / /')         # fix 'em again
+fi
+
+# compile the CPUTYPE line
+CPUTYPEMATH="${CPUTYPE} x${NUMCPUS} | ${MEMTOTAL} MB RAM"
+CPUTYPE="${GRAY}${CPUTYPE} x${NUMCPUS} ${WHITE}|${GRAY} ${MEMTOTAL} MB RAM"
+
+# TEST FOR ROOT
+# IF ROOT, BRED; ELSE, BGREEN
+if test "$USER" = 'root'; then
+  USER=`echo -n "${BRED}$USER${RESET}"`
+else
+  USER=`echo -n "${GREEN}$USER${RESET}"`
+fi
+
+# GET SYSTEM COLOR
+if [ -n "$ZSHCOLOR" ]; then
+    eval HOST_COLOR=$"${ZSHCOLOR:u}"
+else
+    HOST_COLOR=$GREEN
+fi
+# COLOR HOST
+HOST="$HOST_COLOR$HOST$RESET"
+
+rSideMath="$USERL@$HOSTL"
+rSide="$USER@$HOST"
+lSide="staticflux development"
+
+# characters not in the or dashes
+wAlready=`expr 9 + ${#lSide} + ${#rSideMath}`
+# total width
+wTotal=`tput cols`
+# the total width of dashes we will need
+wCols=$((`tput cols`-wAlready))
+wLeft=$((($wCols/2)-1)) # -1 to better center; wRight being calculated handles this
+wRight=$((($wCols-$wLeft)))
+cAlready=`expr 6 + ${#CPUTYPEMATH}`
+cCols=$((`tput cols`-cAlready))
+cLeft=$((($cCols/2)-1))
+cRight=$((($cCols-$cLeft)))
+dLeft=`head -c ${wLeft} < /dev/zero | tr '\0' '\55'`
+dRight=`head -c ${wRight} < /dev/zero | tr '\0' '\55'`
+dWhole=`head -c ${wTotal} < /dev/zero | tr '\0' '\55'`
+dcLeft=`head -c ${cLeft} < /dev/zero | tr '\0' '\55'`
+dcRight=`head -c ${cRight} < /dev/zero | tr '\0' '\55'`
+dcWhole=`head -c ${wTotal} < /dev/zero | tr '\0' '\55'`
+lines=(
+       "         __        __  _      ______           "
+       "   _____/ /_____  / /_(_)____/ __/ /_  _____ __"
+       "  / ___/ __/ __ \/ __/ / ___/ /_/ / / / // |/ /"
+       " (__  ) /_/ /_/ / /_/ / /__/ __/ / /_/ / >  <  "
+       "/____/\__/\__-_/\__/_/\___/_/ /_/\____//_/|_|  "
+       )
+xCols=$(($(tput cols)-${#lines[1]}))
+xLeft=$((${xCols}/2))
+xRight=$((${xCols}-${xLeft}))
+sLeft="$(head -c ${xLeft} < /dev/zero | tr '\0' ' ')"
+sRight="$(head -c ${xLeft} < /dev/zero | tr '\0' ' ')"
+
+# BEGIN ACTUALLY PRINTING STUFF
+echo -n "${RESET}"
+for i in "${lines[@]}"; do
+    echo -n ${sLeft}
+    echo -n ${GRAY}${i}${RESET}
+    echo    ${sRight}
+done
+echo -n "${RESET}"
+echo ""
+echo -n "${GRAY}${dLeft}${RESET}"
+echo -n "${RED}=[${RESET} ${CYAN}${lSide}${RESET} | ${USER}@${HOST} ${RED}]=${RESET}"
+echo "${GRAY}${dRight}${RESET}"
+echo -n "${GRAY}${dcLeft}${RESET}"
+echo -n "${BLUE}=[ ${RESET}${BBLACK}${CPUTYPE}${RESET}${BLUE} ]=${RESET}"
+echo "${GRAY}${dcRight}${RESET}"
+echo ""

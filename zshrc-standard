@@ -1,0 +1,94 @@
+# STATE VARIABLES WILL BE PLACED ABOVE THIS LINE.
+~/.newterm
+# Otherwise zsh will complain about folder permissions.
+ZSH_DISABLE_COMPFIX=true 
+# Path to your oh-my-zsh installation.
+  export ZSH=~/.oh-my-zsh
+
+# If we don't have a .bin folder, make it.
+if [[ ! -d "$HOME/.bin" ]]; then mkdir $HOME/.bin; fi
+
+# transfer.sh alias
+transfer() { if [ $# -eq 0 ]; then echo "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"; return 1; fi 
+tmpfile=$( mktemp -t transferXXX ); if tty -s; then basefile=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]/-/g'); curl --progress-bar --upload-file "$1" "https://transfer.sh/$basefile" >> $tmpfile; else curl --progress-bar --upload-file "-" "https://transfer.sh/$1" >> $tmpfile ; fi; cat $tmpfile; rm -f $tmpfile; }
+
+# Update script
+function termupdate() {
+    curl -Lso ~/.bin/termupdate.sh https://seanhelling.com/sh/update-term.sh
+    chmod +x ~/.bin/termupdate.sh
+    source ~/.bin/termupdate.sh
+}
+
+# To display Hostname😎PWD_Name as title text
+USERNAME=$(whoami)
+HOSTNAME=$(hostname -s)
+DISABLE_AUTO_TITLE="true"
+
+## Refresh the custome title when the directory changes. Changed from precmd as it shall suppress the set-title function below
+function set-title() {
+    window_title="\033]0;$USERNAME@$HOSTNAME\007"
+    echo -ne "$window_title"
+}
+
+function chpwd () {
+    set-title
+}
+
+TMOUT=1
+TRAPALRM() {
+    set-title
+}
+
+# Compress script
+compress(){
+    [[ (-z $1) ]] && echo 'Error: must input a file.' && return 1
+    [[ (-z $2) ]] && echo "Compressing to ./$1.gz."
+    if [[ (-z $2) ]]; then dest="$1.gz" else dest=$2 fi
+    src=$1
+    tar cf - $src -P | pv -s $(du -sb $src | awk '{print $1}') | pigz > $dest
+}
+
+# Program settings preference aliases
+alias ogdu=$(which du)
+du() {ogdu -h}
+dus() {du --summarize --human-readable --one-file-system 2>/dev/null}
+du1() {ogdu -h -d1 --one-file-system $1 | sort -h}
+
+alias ncdu="ncdu -x -q --exclude-caches"
+
+alias all="which -a"
+
+# Uncomment the following line to use case-sensitive completion.
+# CASE_SENSITIVE="true"
+
+# Uncomment the following line to use hyphen-insensitive completion. Case
+# sensitive completion must be off. _ and - will be interchangeable.
+# HYPHEN_INSENSITIVE="true"
+
+# Uncomment the following line to disable bi-weekly auto-update checks.
+DISABLE_AUTO_UPDATE="true"
+
+# Uncomment the following line to change how often to auto-update (in days).
+# export UPDATE_ZSH_DAYS=13
+
+# Uncomment the following line to enable command auto-correction.
+# ENABLE_CORRECTION="true"
+
+# Uncomment the following line to display red dots whilst waiting for completion.
+# COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+# Which plugins would you like to load? (plugins can be found in ~/.oh-my-zsh/plugins/*)
+# Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(git encode64 extract)
+
+# User configuration
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.bin:."
+source $ZSH/oh-my-zsh.sh
